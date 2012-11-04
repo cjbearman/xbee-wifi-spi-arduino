@@ -1,3 +1,12 @@
+/*
+ * File                 basic_rx.ino
+ *
+ * Synopsis             Simple example sketch to demonstrate reception of data
+ *
+ * Author               Chris Bearman
+ *
+ * Version              1.0
+ */
 #include <XbeeWifi.h>
 
 // Allow us to embed some PROGMEM strings inline so we don't run out of memory

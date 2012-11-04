@@ -1,3 +1,12 @@
+/*
+ * File                 query_xbee.ino
+ *
+ * Synopsis             Simple example sketch to demonstrate AT query of Xbee
+ *
+ * Author               Chris Bearman
+ *
+ * Version              1.0
+ */
 #include <XbeeWifi.h>
 
 // Allow us to embed some PROGMEM strings inline so we don't run out of memory
