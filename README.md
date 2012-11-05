@@ -26,6 +26,12 @@ Receive data samples from remote XBEE devices
 Remove modem status indications from local XBEE device
 Initiate and receive active network scan data from local XBEE device
 
+Installation
+============
+Create a directory called XbeeWifi under sketches/libraries - where sketches is your base sketches directory. Check out this GIT repository to the new directory.
+
+Restart Arduino IDE. You should now be able to import the XbeeWifi library and find XbeeWifi examle sketches.
+
 Connecting to the Xbee
 ======================
 

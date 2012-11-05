@@ -116,10 +116,8 @@ uint8_t XbeeWifi::read()
 	// Sned chip select low
 	digitalWrite(pin_cs, LOW);
 
-	// Read data by sending AA (10101010) 
-	// The value sent is pretty much irelevant - excpet it's easy to identify on an oscilloscope
-	// when you're sampling the MOSI line to hint that it's actually a read
-	SPDR = 0xAA;
+	// Read data by sending 0x00
+	SPDR = 0x00;
 	waitSPI();
 	uint8_t data = SPDR;
 	XBEE_DEBUG(Serial.print("IN 0x"));
