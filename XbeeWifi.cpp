@@ -19,7 +19,7 @@
 // Uncomment the following line to enable debug output to serial
 // When using debug, caller is responsible for initializing Serial interface
 
-//#define XBEE_ENABLE_DEBUG
+#define XBEE_ENABLE_DEBUG
 
 // Debug functions
 #ifdef XBEE_ENABLE_DEBUG
@@ -879,9 +879,9 @@ void XbeeWifi::rx_modem_status(unsigned int len)
 		XBEE_DEBUG(Serial.println(F("Non 1 length on incoming modem status frame")));
 	} else {
 		uint8_t status = read();
-		uint8_t cs = 0xFF - status;
+		uint8_t cs = 0xFF - (uint8_t) (status + XBEE_API_FRAME_MODEM_STATUS);
 		uint8_t incoming_cs = read();
-		if (incoming_cs = cs) {
+		if (incoming_cs == cs) {
 			// Record last status
 			last_status = status;
 			// Dispatch status
