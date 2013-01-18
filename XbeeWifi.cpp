@@ -19,7 +19,7 @@
 // Uncomment the following line to enable debug output to serial
 // When using debug, caller is responsible for initializing Serial interface
 
-#define XBEE_ENABLE_DEBUG
+//#define XBEE_ENABLE_DEBUG
 
 // Debug functions
 #ifdef XBEE_ENABLE_DEBUG
