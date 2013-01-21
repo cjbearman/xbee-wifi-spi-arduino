@@ -38,8 +38,12 @@ class __FlashStringHelper;
 #endif
 
 // For consistent use - definition of SPCR settings for SPI bus
-// Add | (1 << SPR0) | (1 < SPR1)     to slow down the SPI bus for easier monitoring if needed
-#define XBEE_SPCR (1 << SPE) | (1 << MSTR) 
+#define XBEE_SPCR (1 << SPE) | (1 << MSTR) | (1 << SPR0)
+// Other possible options here...
+// For faster SPI bus (usually works)
+//#define XBEE_SPCR (1 << SPE) | (1 << MSTR)
+// For slower SPI bus (good for scope debugging)
+//#define XBEE_SPCR (1 << SPE) | (1 << MSTR) | (1 << SPR0) | (1 << SPR1)
 
 // The following codes are returned by the rx_frame method, and used internally within this module
 #define RX_SUCCESS 0
@@ -187,8 +191,9 @@ bool XbeeWifi::init(uint8_t cs, uint8_t atn, uint8_t reset, uint8_t dout)
 		delay(100);
 
 		// Take XBEE out of reset, still leaving DOUT LOW
-		// by tri-moding the reset pin
+		// by tri-moding the reset pin and applying internal pullup
 		pinMode(pin_reset, INPUT);
+		digitalWrite(pin_reset, HIGH);
  
 		// We expect to see ATN go high to confirm SPI mode
 		if (!wait_atn()) {
@@ -196,6 +201,9 @@ bool XbeeWifi::init(uint8_t cs, uint8_t atn, uint8_t reset, uint8_t dout)
 			XBEE_DEBUG(Serial.println(F("No ATN assert on reset")));
 			return false;
 		}
+
+		// Tristate DOUT pin, we're done with it
+		pinMode(pin_dout, INPUT);
 
 		// The reset / force SPI auto-queues a status frame
 		// so go ahead and read it
