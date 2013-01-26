@@ -36,7 +36,7 @@ class __FlashStringHelper;
 #define F(str) reinterpret_cast<__FlashStringHelper *>(PSTR(str))
 
 // Defintions for what pins we're using for hwat
-#define XBEE_RESET 20
+#define XBEE_RESET 15
 #define XBEE_ATN 2
 #define XBEE_SELECT SS
 #define XBEE_DOUT 23
@@ -559,7 +559,7 @@ void loop()
       s_txoptions txopt;
       txopt.dest_port = config.dest_port;
       txopt.source_port = config.port;
-      txopt.protocol = XBEE_NET_IPPROTO_TCP;
+      txopt.protocol = config.payload;
       txopt.leave_open = true;
       Serial.print("Transmitting...");
       int res = xbee.transmit(config.dest_ip, &txopt, (uint8_t *)input +3, strlen((char *)input +3), true, config.endpoint == ENDPOINT_APP ? true : false);
