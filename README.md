@@ -5,7 +5,7 @@ Note:
 
 This library is not for use with non-wifi (Zigbee or other) XBEE modules. It is also not for use with the UART mode of the Wifi XBEE module. It implements the SPI interface to the XBEE Wifi module only. The SPI interface is optimal to utilize the full network functionality of the Wifi XBEE at the expense of GPIO lines used for the SPI bus integration.
 
-Note that using integrating with the Xbee Wifi using SPI is a demanding job for a small microcontroller. Simple communications problems are often better solved UART interface to the device. This library does not provide support for the much simpler requirements of integration through the UART interface.
+Note that using integrating with the Xbee Wifi using SPI is a demanding job for a small microcontroller. Simple communications problems are often better solved UART interface to the device. This library does not provide support for the much simpler requirements of integration through the UART interface - it is soley dedicated to integration using the more complex SPI interface.
 
 Hardware Configuration
 ======================
