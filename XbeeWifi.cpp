@@ -55,8 +55,8 @@ class __FlashStringHelper;
 // Constructor (default)
 XbeeWifi::XbeeWifi() : 
 #ifndef XBEE_OMIT_RX_DATA
-	ip_data_func(NULL), 
 	rx_seq(0), 
+	ip_data_func(NULL), 
 #endif
 	modem_status_func(NULL), 
 #ifndef XBEE_OMIT_SCAN
@@ -140,9 +140,6 @@ uint8_t XbeeWifi::read()
 // Initialize the XBEE
 bool XbeeWifi::init(uint8_t cs, uint8_t atn, uint8_t reset, uint8_t dout)
 {
-	int atnn;
-	unsigned long sanity;
-
 	// Capture pin assignments for later use
 	pin_cs = cs;
 	pin_atn = atn;
@@ -232,11 +229,11 @@ bool XbeeWifi::init(uint8_t cs, uint8_t atn, uint8_t reset, uint8_t dout)
 // Transmit a SPI API frame
 // type should be the type of frame (XBEE_API_FRAME_.....)
 // data (of length len) should be all data within the frame, excluding frame id, length or checksum
-bool XbeeWifi::tx_frame(uint8_t type, unsigned int len, uint8_t *data)
+void XbeeWifi::tx_frame(uint8_t type, unsigned int len, uint8_t *data)
 {
 	// Calculate the proper checksum (sum of all bytes - type onward) subtracted from 0xFF
 	uint8_t cs = type;
-	for (int i = 0; i < len; i++) {
+	for (unsigned int i = 0; i < len; i++) {
 		cs += data[i];
 	}
 	cs = 0xff - cs;
@@ -349,10 +346,10 @@ int XbeeWifi::rx_frame(uint8_t *frame_type, unsigned int *len, uint8_t *data, in
 				// We want to handle and return this frame
 
 				cs = type;
-				for (int i = 0 ; i < rxlen; i++) {
+				for (unsigned int i = 0 ; i < rxlen; i++) {
 					in = read();
 					cs += in;
-					if (i <bufsize) {
+					if (i < (unsigned int) bufsize) {
 						data[i] = in;
 					} else {
 						truncated = true;
@@ -365,7 +362,7 @@ int XbeeWifi::rx_frame(uint8_t *frame_type, unsigned int *len, uint8_t *data, in
 				cs_incoming = read();
 
 				// Set up returned values
-				*len = (rxlen > bufsize) ? bufsize : rxlen;
+				*len = (rxlen > (unsigned int) bufsize) ? bufsize : rxlen;
 				*frame_type = type;
 
 				// And report appropriate status in return value
@@ -388,10 +385,14 @@ int XbeeWifi::rx_frame(uint8_t *frame_type, unsigned int *len, uint8_t *data, in
 				// Drop it with debug
 				XBEE_DEBUG(Serial.print(F("**** RX DROP Unsupported frame, type : 0x")));
 				XBEE_DEBUG(Serial.println(type, HEX));
-				for (int i = 0 ; i < rxlen + 1; i++) {
+				for (unsigned int i = 0 ; i < rxlen + 1; i++) {
+#ifdef XBEE_ENABLE_DEBUG
 					uint8_t dropped = read();
 					XBEE_DEBUG(Serial.print(F("Dropping : 0x")));
 					XBEE_DEBUG(Serial.println(dropped, HEX));
+#else
+					read();
+#endif
 				}
 				
 				break;
@@ -660,7 +661,11 @@ bool XbeeWifi::wait_atn(unsigned long int max_millis)
 void XbeeWifi::flush_spi()
 {
 	while(digitalRead(pin_atn) == LOW) {
+#ifdef XBEE_ENABLE_DEBUG
 		uint8_t in = read();
+#else
+		read();
+#endif
 		XBEE_DEBUG(Serial.print(F("Flushed one from spi: 0x")));
 		XBEE_DEBUG(Serial.println(in, HEX));
 	}
@@ -731,7 +736,6 @@ void XbeeWifi::rx_sample(unsigned int len)
 {
 	XBEE_DEBUG(Serial.print(F("RX Sample len 0x")));
 	XBEE_DEBUG(Serial.println(len, HEX));
-	uint8_t buf[XBEE_BUFSIZE];
 
 	// Create new empty sample record
 	s_sample sample;
@@ -741,7 +745,7 @@ void XbeeWifi::rx_sample(unsigned int len)
 	uint8_t cs = XBEE_API_FRAME_IO_DATA_SAMPLE_RX;
 	
 	// Keep reading all data, reading in the appropriate values as they are reached
-	for (int pos = 0 ; pos < len; pos++) {
+	for (unsigned int pos = 0 ; pos < len; pos++) {
 		uint8_t incoming = read();
 		cs += incoming;
 		switch(pos) {
@@ -883,7 +887,7 @@ void XbeeWifi::rx_modem_status(unsigned int len)
 	if (len != 1) {
 		// Oops....
 		// Read the frame out and ignore
-		for (int i = 0 ; i < len + 1; i++) read();
+		for (unsigned int i = 0 ; i < len + 1; i++) read();
 		XBEE_DEBUG(Serial.println(F("Non 1 length on incoming modem status frame")));
 	} else {
 		uint8_t status = read();
@@ -938,7 +942,7 @@ bool XbeeWifi::transmit(const uint8_t *ip, s_txoptions *addr, uint8_t *data, int
 	int hdrlen = useAppService ? 0x0E : 0x0F;
 #else
 	int hdrlen = 0x0E;
-#endif;
+#endif
 	int offset = 0;
 	hdrbuf[offset++]  = 0x7E;				// Start byte
 	hdrbuf[offset++]  = (len + hdrlen - 3) >> 8;		// Length MSB

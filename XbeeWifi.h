@@ -436,8 +436,6 @@ class XbeeWifi
 	bool initiateScan();
 #endif
 
-	// Provide a reference of the last modem status
-	uint8_t last_status;
 
 	private:
 	// This is the actual method that does all AT processing
@@ -457,7 +455,7 @@ class XbeeWifi
 	int rx_frame(uint8_t *frame_type, unsigned int *len, uint8_t *data, int bufsize, unsigned long atn_wait_ms = 5000L, bool return_status = false);
 
 	// Transmit an API frame of specified type, length and data
-	bool tx_frame(uint8_t type, unsigned int len, uint8_t *data);
+	void tx_frame(uint8_t type, unsigned int len, uint8_t *data);
 
 	// Wait for SPI operation to finish
 	void waitSPI();
@@ -488,8 +486,10 @@ class XbeeWifi
 	uint8_t pin_dout;
 	uint8_t pin_reset;
 
-	// The next ATID to use for sequencing AT comamnd responses
-	uint8_t next_atid;
+	// RX seq
+#ifndef XBEE_OMIT_RX_DATA
+	uint16_t rx_seq;
+#endif
 
 	// The function pointer for IP callback
 #ifndef XBEE_OMIT_RX_DATA
@@ -509,10 +509,11 @@ class XbeeWifi
 	void (*sample_func)(s_sample *);
 #endif
 
-	// RX seq
-#ifndef XBEE_OMIT_RX_DATA
-	uint16_t rx_seq;
-#endif
+	// The next ATID to use for sequencing AT comamnd responses
+	uint8_t next_atid;
+
+	// Provide a reference of the last modem status
+	uint8_t last_status;
 
 	// Handles incoming active scan data (AT responses to AS command)
 	void handleActiveScan(uint8_t *buf, int len);
