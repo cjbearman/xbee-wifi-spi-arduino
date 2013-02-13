@@ -5,6 +5,8 @@ Note:
 
 This library is not for use with non-wifi (Zigbee or other) XBEE modules. It is also not for use with the UART mode of the Wifi XBEE module. It implements the SPI interface to the XBEE Wifi module only. The SPI interface is optimal to utilize the full network functionality of the Wifi XBEE at the expense of GPIO lines used for the SPI bus integration.
 
+Note that using integrating with the Xbee Wifi using SPI is a demanding job for a small microcontroller. Simple communications problems are often better solved UART interface to the device. This library does not provide support for the much simpler requirements of integration through the UART interface.
+
 Hardware Configuration
 ======================
         Arduino                                         XBEE
@@ -17,6 +19,8 @@ Hardware Configuration
         digital pin                <--->                DOUT        (optional)
 
 The optional pin connections ARE optionally used to force the XBEE module into SPI mode during initialization. If not provided then the XBEE must be pre-configured (using XCTU or other methods) with the correct pin assignments for SPI operation before use with this library. It is important to note that the Xbee is not directly compatible with 5v Arduino devices. The Xbee requires 3.3v power and signals. If using a 5v Arduino, you *MUST* provide a 3.3v power supply for the Xbee and you *MUST* convert the signal leverl for *ALL* connections to 3.3v using appropriate level shifting hardware.
+
+Make sure and pay attention to the instructions on power supply design in the Xbee Wifi manual - particuarly the capacitor recommendations. When running with an Arduino based board powered at 3.3v I have encounted issues tripping BOD (brown out) resets on the microcontroller. Lowering the BOD threshold in the microcontrolelr fuses as well as providing plenty (1000uF+) of capacitance on the power feed is advisible.
 
 Primary Functions
 =================
