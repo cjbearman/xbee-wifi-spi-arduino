@@ -405,7 +405,7 @@ void show_config()
 // When we get a "set" command, parse it to update input  
 void update_config(char *input)
 {
-    bool write_needed = false;
+    bool apply_needed = false;
     char *cmd = strtok(input, " ");
     char *parm = strtok(NULL, " ");
     char *value = strtok(NULL, " ");
@@ -415,32 +415,32 @@ void update_config(char *input)
       if (strcmp(parm, "ipmode") == 0) {
         if (strcmp(value, "dhcp") == 0) {
           config.ipmode = XBEE_NET_ADDRMODE_DHCP;
-          write_needed = valid = true;
+          apply_needed = valid = true;
         } else if (strcmp(value, "static") == 0) {
           config.ipmode = XBEE_NET_ADDRMODE_STATIC;
-          write_needed = valid = true;
+          apply_needed = valid = true;
         }
       } else if (strcmp(parm, "ipaddr") ==0) {
-        if (parse_as_ip(value, config.ip)) write_needed = valid = true;
+        if (parse_as_ip(value, config.ip)) apply_needed = valid = true;
       } else if (strcmp(parm, "gateway") ==0) {
-        if (parse_as_ip(value, config.gw)) write_needed = valid = true;
+        if (parse_as_ip(value, config.gw)) apply_needed = valid = true;
       } else if (strcmp(parm, "netmask") ==0) {
-        if (parse_as_ip(value, config.nm)) write_needed = valid = true;
+        if (parse_as_ip(value, config.nm)) apply_needed = valid = true;
       } else if (strcmp(parm, "destip") ==0) {
         if (parse_as_ip(value, config.dest_ip)) valid = true;
       } else if (strcmp(parm, "port") ==0) {
         config.port = atoi(value);
-        write_needed = valid = true;
+        apply_needed = valid = true;
       } else if (strcmp(parm, "destport") ==0) {
         config.dest_port = atoi(value);
         valid = true;
       } else if (strcmp(parm, "payload") ==0) {
         if (strcmp(value, "tcp") == 0) {
           config.payload = XBEE_NET_IPPROTO_TCP;
-          write_needed = valid = true;
+          apply_needed = valid = true;
         } else if (strcmp(value, "udp") == 0) {
           config.payload = XBEE_NET_IPPROTO_UDP;
-          write_needed = valid = true;
+          apply_needed = valid = true;
         }
       } else if (strcmp(parm, "endpoint") == 0) {
         if (strcmp(value, "raw") == 0) {
@@ -452,31 +452,33 @@ void update_config(char *input)
         }
       } else if (strcmp(parm, "ssid") ==0) {
         strncpy((char *)config.ssid, value, MAX_SSID);
-        write_needed = valid = true;
+        apply_needed = valid = true;
       } else if (strcmp(parm, "password") ==0) {
         strncpy((char *)config.psk, value, MAX_PSK);
-        write_needed = valid = true;
+        apply_needed = valid = true;
       } else if (strcmp(parm, "encryption") ==0) {
         if (strcmp(value, "none") == 0) {
           config.encmode = XBEE_SEC_ENCTYPE_NONE;
-          write_needed = valid = true;
+          apply_needed = valid = true;
         } else if (strcmp(value, "wep") == 0) {
           config.encmode = XBEE_SEC_ENCTYPE_WEP;
-          write_needed = valid = true;
+          apply_needed = valid = true;
         } else if (strcmp(value, "wpa") == 0) {
           config.encmode = XBEE_SEC_ENCTYPE_WPA;
-          write_needed = valid = true;
+          apply_needed = valid = true;
         } else if (strcmp(value, "wpa2") == 0) {
           config.encmode = XBEE_SEC_ENCTYPE_WPA2;
-          write_needed = valid = true;
+          apply_needed = valid = true;
         }
       }
       if (!valid) {
         Serial.println(F("huh?"));
       } else {
-        if (write_needed) {
+        if (apply_needed) {
           write_configuration();
           apply_configuration();
+        } else {
+          write_configuration();
         }
         Serial.println("ok");
       }

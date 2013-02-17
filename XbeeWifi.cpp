@@ -234,10 +234,18 @@ bool XbeeWifi::init(uint8_t cs, uint8_t atn, uint8_t reset, uint8_t dout)
 // data (of length len) should be all data within the frame, excluding frame id, length or checksum
 void XbeeWifi::tx_frame(uint8_t type, unsigned int len, uint8_t *data)
 {
-	// Signal the SPI operation ASAP
-	// This (hopefully) prevents an ATN assert which could
-	// result in a lost packet because we're writing, not reading..
+	// Grab the SPI bus ASAP
 	spiStart();
+
+	// It is prudent to check for incoming frames cached, or otherwise we'd loose / corrupt
+	// them as we transmit ours. By locking the SPI bus we prevent it from being released
+	// after a packet is received (if a packet is received)
+	spiLocked = true;
+	process();
+
+	// Safe now to send our packet and we must also make sure and unlock the SPI
+	// bus so that when we deassert CS (spiEnd) later, it will in fact deassert
+	spiLocked = false;
 
 	// Calculate the proper checksum (sum of all bytes - type onward) subtracted from 0xFF
 	uint8_t cs = type;
@@ -501,6 +509,7 @@ bool XbeeWifi::at_cmd(const char *atxx, const uint8_t *parmval, int parmlen, voi
 		XBEE_DEBUG(Serial.println(F("****** Too big AT")));
 		return false;
 	}
+
 
 	// If this is an immediate operation, increment the atid - mostly for debug reasons
 	if (!queued) {
