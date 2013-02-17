@@ -460,6 +460,11 @@ class XbeeWifi
 	// Transmit an API frame of specified type, length and data
 	void tx_frame(uint8_t type, unsigned int len, uint8_t *data);
 
+	// Start / End SPI operation
+	void spiStart();
+	void spiEnd();
+	
+
 	// Wait for SPI operation to finish
 	void waitSPI();
 
@@ -520,6 +525,10 @@ class XbeeWifi
 
 	// Track RX callback depth
 	uint8_t callback_depth;
+
+	// SPI status
+	uint8_t spcr_copy;
+	bool spiRunning;
 
 };
 

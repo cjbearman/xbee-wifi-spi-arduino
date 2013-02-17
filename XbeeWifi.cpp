@@ -67,7 +67,10 @@ XbeeWifi::XbeeWifi() :
 	sample_func(NULL),
 #endif
 	next_atid(0),
-	callback_depth(0)
+	callback_depth(0),
+	spcr_copy(SPCR),
+	spiRunning(false)
+	
 {
 }
 
@@ -83,14 +86,6 @@ void XbeeWifi::write(const uint8_t *data, int len)
 {
 	XBEE_DEBUG(Serial.print(F("Write")));
 	XBEE_DEBUG(Serial.println(len, DEC));
-	// Take a copy of SPCR so we can reset it when done
-	uint8_t spcr = SPCR;
-
-	// Enable SPI with appropriate parameters
-	SPCR = XBEE_SPCR;
-
-	// Send chip select low
-	digitalWrite(pin_cs, LOW);
 
 	// Output data
 	for (int i = 0; i < len; i++) {
@@ -99,39 +94,40 @@ void XbeeWifi::write(const uint8_t *data, int len)
 		SPDR = data[i];
 		waitSPI();
 	}
-	
-	// Return chip select to high
-	digitalWrite(pin_cs, HIGH);
-
-	// Reset SPCR
-	SPCR = spcr;
 }
+
+// Set up for SPI operation, assert chip select
+void XbeeWifi::spiStart()
+{
+	if (spiRunning) return;
+	spiRunning = true;
+	XBEE_DEBUG(Serial.println("SPI Start"));
+	spcr_copy = SPCR;
+	SPCR = XBEE_SPCR;
+	digitalWrite(pin_cs, LOW);
+}
+
+// Clean up from SPI operation, de-assert chip select
+void XbeeWifi::spiEnd()
+{
+	if (!spiRunning) return;
+	spiRunning = false;
+	XBEE_DEBUG(Serial.println("SPI End"));
+	digitalWrite(pin_cs, HIGH);
+	SPCR = spcr_copy;
+}
+
 
 // Read a buffer of given length from SPI
 // Reading multiple bytes in a single function is again optimal
 uint8_t XbeeWifi::read()
 {
-	// Take a copy of SPCR so we can reset it when done
-	uint8_t spcr = SPCR;
-
-	// Enable SPI with appropriate parameters
-	SPCR = XBEE_SPCR;
-
-	// Sned chip select low
-	digitalWrite(pin_cs, LOW);
-
 	// Read data by sending 0x00
 	SPDR = 0x00;
 	waitSPI();
 	uint8_t data = SPDR;
 	XBEE_DEBUG(Serial.print("IN 0x"));
 	XBEE_DEBUG(Serial.println(data, HEX));
-
-	// Send chip select high
-	digitalWrite(pin_cs, HIGH);
-
-	// Reset SPCR
-	SPCR = spcr;
 
 	// Return the data
 	return data;
@@ -246,9 +242,11 @@ void XbeeWifi::tx_frame(uint8_t type, unsigned int len, uint8_t *data)
 	hdr[3] = type;				// API Frame Type
 
 	// Send
+	spiStart();
 	write(hdr, 4);				// Write header
 	write(data, len);			// Write the data to SPI
 	write(&cs, 1);				// And the checksum
+	spiEnd();
 }
 
 // Receive a SPI API frame
@@ -282,12 +280,14 @@ int XbeeWifi::rx_frame(uint8_t *frame_type, unsigned int *len, uint8_t *data, in
 			}
 			return RX_FAIL_WAITING_FOR_ATN;
 		}
-	
+
 		// Read start byte
+		spiStart();
 		in = read();
 		if (in != 0x7E) {
 			XBEE_DEBUG(Serial.println(F("****** Failed in rx_frame, invalid start byte")));
 			flush_spi();
+			spiEnd();
 			return RX_FAIL_INVALID_START_BYTE;
 		}
 	
@@ -366,6 +366,7 @@ int XbeeWifi::rx_frame(uint8_t *frame_type, unsigned int *len, uint8_t *data, in
 				*frame_type = type;
 
 				// And report appropriate status in return value
+				spiEnd();
 				if (truncated) {
 					XBEE_DEBUG(Serial.println(F("****** RX fail, truncation")));
 					return RX_FAIL_TRUNCATED;
@@ -379,6 +380,7 @@ int XbeeWifi::rx_frame(uint8_t *frame_type, unsigned int *len, uint8_t *data, in
 				} else {
 					return RX_SUCCESS;
 				}
+				//break; (implied by returns)
 
 			default				:
 				// This is an unexpected (possibly new, unsupported) frame
@@ -979,6 +981,7 @@ bool XbeeWifi::transmit(const uint8_t *ip, s_txoptions *addr, uint8_t *data, int
 #endif
 	
 	// Write the header, and then the data to SPI
+	spiStart();
 	write(hdrbuf, hdrlen);
 	write(data, len);
 
@@ -991,6 +994,7 @@ bool XbeeWifi::transmit(const uint8_t *ip, s_txoptions *addr, uint8_t *data, int
 
 	// Write the checksum
 	write(&cs, 1);
+	spiEnd();
 
 	// If asked to confirm we sent a packet with a non-zero ATID
 	// and must now listen for a response
