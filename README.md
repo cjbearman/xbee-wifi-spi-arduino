@@ -1,7 +1,7 @@
 Arduino library for XBEE Wifi module, using SPI communication
 =============================================================
 
-Note: 
+Notes: 
 
 This library is not for use with non-wifi (Zigbee or other) XBEE modules. It is also not for use with the UART mode of the Wifi XBEE module. It implements the SPI interface to the XBEE Wifi module only. The SPI interface is optimal to utilize the full network functionality of the Wifi XBEE at the expense of GPIO lines used for the SPI bus integration.
 
@@ -194,4 +194,16 @@ This is a pretty large library. Arduino and avr-gcc are good at optimizing out u
 A set of #defines are provided in the XbeeWifi.h function that can be uncommented to reduce the size of the final binary, at the expense of loosing some functionality.
 
 You will find a list of these optional defines commented out at the top of the .h file. Simple uncomment then to limit the functionality and reduce sketch size.
+
+
+Limitations
+===========
+This is a complex SPI interface and trying to fit it into a library for a small microcontroller like the Arduino is challenging.
+
+The library as written will not handle the case where a packet is dispatched by the Xbee to the Arduino whilst the Arduino is in the middle of a transmission to the Xbee. Such packets will not be buffered and retained. Although the datasheet is unclear on this matter, I believe this can occur and this case is not currently handled. This means that lost packets can occur. Impact should be minimal and I have never actually encountered this happening.
+
+Still i'm working on an optional addition that (if enabled) will mitigate against this possibility - albeit at the expense of needing a little more RAM for operation.
+
+
+This library is written for the Arduino Uno / Mega and similar devices. It is NOT written for the new Arduino DUE and it is currently unknown whether or not it is compatible. There are some differences in SPI bus operation on the DUE that may need to be accounted for. I have a DUE on order and will test with it when it arrives! Since the DUE is more capable, additional operational modes and capabilities may be possible.
 
