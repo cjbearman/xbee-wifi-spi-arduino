@@ -69,8 +69,8 @@ XbeeWifi::XbeeWifi() :
 	next_atid(0),
 	callback_depth(0),
 	spcr_copy(SPCR),
-	spiRunning(false)
-	
+	spiRunning(false),
+	spiLocked(false)
 {
 }
 
@@ -89,10 +89,17 @@ void XbeeWifi::write(const uint8_t *data, int len)
 
 	// Output data
 	for (int i = 0; i < len; i++) {
+#ifdef XBEE_ENABLE_DEBUG
+                if (digitalRead(pin_atn) == LOW) Serial.println("ATN Asserted during write");
+#endif
 		XBEE_DEBUG(Serial.print(F("OUT 0x")));
 		XBEE_DEBUG(Serial.println(data[i], HEX));
 		SPDR = data[i];
 		waitSPI();
+#ifdef XBEE_ENABLE_DEBUG
+		if (SPDR == 0x7E) Serial.println("!*!Start packet during write");
+#endif
+
 	}
 }
 
@@ -107,10 +114,10 @@ void XbeeWifi::spiStart()
 	digitalWrite(pin_cs, LOW);
 }
 
-// Clean up from SPI operation, de-assert chip select
+// Clean up from SPI operation, de-assert chip select, unless SPI has been locked
 void XbeeWifi::spiEnd()
 {
-	if (!spiRunning) return;
+	if (!spiRunning || spiLocked) return;
 	spiRunning = false;
 	XBEE_DEBUG(Serial.println("SPI End"));
 	digitalWrite(pin_cs, HIGH);
@@ -227,6 +234,11 @@ bool XbeeWifi::init(uint8_t cs, uint8_t atn, uint8_t reset, uint8_t dout)
 // data (of length len) should be all data within the frame, excluding frame id, length or checksum
 void XbeeWifi::tx_frame(uint8_t type, unsigned int len, uint8_t *data)
 {
+	// Signal the SPI operation ASAP
+	// This (hopefully) prevents an ATN assert which could
+	// result in a lost packet because we're writing, not reading..
+	spiStart();
+
 	// Calculate the proper checksum (sum of all bytes - type onward) subtracted from 0xFF
 	uint8_t cs = type;
 	for (unsigned int i = 0; i < len; i++) {
@@ -242,7 +254,6 @@ void XbeeWifi::tx_frame(uint8_t type, unsigned int len, uint8_t *data)
 	hdr[3] = type;				// API Frame Type
 
 	// Send
-	spiStart();
 	write(hdr, 4);				// Write header
 	write(data, len);			// Write the data to SPI
 	write(&cs, 1);				// And the checksum
@@ -915,6 +926,25 @@ void XbeeWifi::rx_modem_status(unsigned int len)
 // When using app compat mode, addr can be null because it is unused
 bool XbeeWifi::transmit(const uint8_t *ip, s_txoptions *addr, uint8_t *data, int len, bool confirm, bool useAppService)
 {
+	// Okay - let's grab the SPI bus and LOCK it (so that other agents within
+	// this code base cannot release it)
+	// This way we (hopefully) stop the Xbee from queuing up any inbound frames
+	spiStart();
+	spiLocked=true;
+
+	// But it's possible that Xbee may have already had such frames pending
+	// .. So deal with them
+	if (digitalRead(pin_atn) == LOW) {
+		XBEE_DEBUG(Serial.print(F("ATN asserted before transmit, call process")));
+		process();
+	}
+	
+	// Okay - the SPI bus should now be clear of incoming data
+	// we are safe to send our own data...
+	// We still have the SPI bus chip select locked.
+	// Unlock it so that when the transmit releases it, it is actually released
+	spiLocked = false;
+
 	XBEE_DEBUG(Serial.print(F("XMIT frame of length ")));
 	XBEE_DEBUG(Serial.println(len, DEC));
 	XBEE_DEBUG(Serial.print(F("XMIT mode : ")));

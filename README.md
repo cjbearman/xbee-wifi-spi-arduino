@@ -198,12 +198,8 @@ You will find a list of these optional defines commented out at the top of the .
 
 Limitations
 ===========
-This is a complex SPI interface and trying to fit it into a library for a small microcontroller like the Arduino is challenging.
-
-The library as written will not handle the case where a packet is dispatched by the Xbee to the Arduino whilst the Arduino is in the middle of a transmission to the Xbee. Such packets will not be buffered and retained. Although the datasheet is unclear on this matter, I believe this can occur and this case is not currently handled. This means that lost packets can occur. Impact should be minimal and I have never actually encountered this happening.
-
-Still i'm working on an optional addition that (if enabled) will mitigate against this possibility - albeit at the expense of needing a little more RAM for operation.
-
-
 This library is written for the Arduino Uno / Mega and similar devices. It is NOT written for the new Arduino DUE and it is currently unknown whether or not it is compatible. There are some differences in SPI bus operation on the DUE that may need to be accounted for. I have a DUE on order and will test with it when it arrives! Since the DUE is more capable, additional operational modes and capabilities may be possible.
 
+I have outstanding questions on whether it is possible for a packet to be dispatched (Xbee -> Arduino) on the SPI bus during the transmission of a packet (Arduino -> Xbee). It appears that this does not occur. I have not found an instance of the ATTN line being asserted, or the reception of a 0x7E (start byte) from the Xbee during transmission of a packet. A good test for this is sending a transmission from the xbee to it's own IP. This behaves mostly as expected- although there appears to be an Xbee bug on receipt - the received packet comes back over SPI but the IP address is all zeros and the data is corrupt. I will send an email to Digi about this minor problem, as well as questions over the details of the SPI bus implementation.
+
+Since there is no obvious instance where an XBEE -> Arduino transmission commences AFTER the Arduino asserts the chip select, this case is not handled by the library (which is a relief because that would require buffering and extra RAM consumption).

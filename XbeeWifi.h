@@ -463,7 +463,6 @@ class XbeeWifi
 	// Start / End SPI operation
 	void spiStart();
 	void spiEnd();
-	
 
 	// Wait for SPI operation to finish
 	void waitSPI();
@@ -526,9 +525,15 @@ class XbeeWifi
 	// Track RX callback depth
 	uint8_t callback_depth;
 
-	// SPI status
+	// To be nice about things, we reset SPCR after using it, copy of SPCR held here
 	uint8_t spcr_copy;
+
+	// True when we have the Xbee Chip Select asserted
 	bool spiRunning;
+
+	// True to prevent SPI bus from being de-selected by endSpi function
+	// in some cases
+	bool spiLocked;
 
 };
 
