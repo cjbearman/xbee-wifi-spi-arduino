@@ -387,6 +387,9 @@ class XbeeWifi
 	bool at_remquery(uint8_t *ip, const char *atxx, uint8_t *parmval, int *parmlen, int maxlen);
 #endif
 
+	// Provide a reference of the last modem status
+	volatile uint8_t last_status;
+
 	// The following functions define callbacks for asynchronous data delivery
 	// To stop delivery (and discard data) of any given type
 	// set the associated callback to it's default (NULL)
@@ -511,9 +514,6 @@ class XbeeWifi
 
 	// The next ATID to use for sequencing AT comamnd responses
 	uint8_t next_atid;
-
-	// Provide a reference of the last modem status
-	uint8_t last_status;
 
 	// Handles incoming active scan data (AT responses to AS command)
 	void handleActiveScan(uint8_t *buf, int len);

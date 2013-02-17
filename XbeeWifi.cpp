@@ -54,6 +54,7 @@ class __FlashStringHelper;
 
 // Constructor (default)
 XbeeWifi::XbeeWifi() : 
+	last_status(XBEE_MODEM_STATUS_RESET),
 #ifndef XBEE_OMIT_RX_DATA
 	rx_seq(0), 
 	ip_data_func(NULL), 
@@ -66,7 +67,6 @@ XbeeWifi::XbeeWifi() :
 	sample_func(NULL),
 #endif
 	next_atid(0),
-	last_status(XBEE_MODEM_STATUS_RESET),
 	callback_depth(0)
 {
 }
