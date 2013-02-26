@@ -16,13 +16,15 @@
  *
  *                      Received data appears on screen as it arrives.
  *                      Transmit data to configured endpoint with transmit command.
- *                      Parameters are preserved in eeprom so that configuration is retained
+ *                      Parameters are preserved in eeprom so that configuration is retained (excluding Arduino Due)
  *
- * Version              1.0
+ * Version              2.0
  */
 
 #include <XbeeWifi.h>
+#ifndef ARCH_SAM
 #include <avr/eeprom.h>
+#endif
 
 // Number of bytes to use for general purpose buffers
 #define MAX_BUF 512
@@ -30,10 +32,6 @@
 // Definitions for endpoint types
 #define ENDPOINT_RAW 0
 #define ENDPOINT_APP 1
-
-// Allow us to embed some PROGMEM strings inline so we don't run out of memory
-class __FlashStringHelper;
-#define F(str) reinterpret_cast<__FlashStringHelper *>(PSTR(str))
 
 // Defintions for what pins we're using for hwat
 #define XBEE_RESET 15
@@ -145,7 +143,9 @@ char *read_input(bool reprompt = false)
 
 // Write configuration to EEPROM
 void write_configuration() {
+#ifndef ARCH_SAM
   eeprom_write_block(&config, 0, sizeof(s_config));
+#endif
 }
 
 // Initialize configuration in memory AND EEPROM
@@ -177,8 +177,12 @@ void init_configuration() {
 // If EEPROM memory did not hold our config, then an initial configuration is deployed
 void load_configuration()
 { 
+#ifdef ARCH_SAM
+  init_configuration();
+#else
   eeprom_read_block(&config, 0, sizeof(s_config));
   if (config.config_marker != CONFIGURED) init_configuration();
+#endif
 }
 
 // Apply in memory configuration to Xbee

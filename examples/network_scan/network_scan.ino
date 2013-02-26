@@ -5,13 +5,9 @@
  *
  * Author               Chris Bearman
  *
- * Version              1.0
+ * Version              2.0
  */
 #include <XbeeWifi.h>
-
-// Allow us to embed some PROGMEM strings inline so we don't run out of memory
-class __FlashStringHelper;
-#define F(str) reinterpret_cast<__FlashStringHelper *>(PSTR(str))
 
 // These are the pins that we are using to connect to the Xbee
 #define XBEE_RESET 20

@@ -22,6 +22,18 @@ The optional pin connections ARE optionally used to force the XBEE module into S
 
 Make sure and pay attention to the instructions on power supply design in the Xbee Wifi manual - particuarly the capacitor recommendations. When running with an Arduino based board powered at 3.3v I have encounted issues tripping BOD (brown out) resets on the microcontroller. Lowering the BOD threshold in the microcontrolelr fuses as well as providing plenty (1000uF+) of capacitance on the power feed is advisible.
 
+This library supports both Arduino Uno (and similar) boards based on ATMEGA chipset and Arduino Due based on SAM chipset.
+
+SPI Bus Speed
+=============
+The SPI bus speed is set by a macro definition in either:
+	xbee_atmega.h		For Uno and similar (ATMEGA chipset based) boards
+	xbee_sam.h		For Due
+
+Assuming 16Mhz (ATMEGA) / 84Mhz (SAM/Due) clock speeds, the SPI bus is set to a default of 1Mhz which seems to be stable. Technically, according to the Xbee datasheet, a speed of up to 3.5Mhz should be attainable. I tend to hit problems at around 2Mhz, but this is mostly because of inferior hardware builds.
+
+For the Arduino Due, it is possible to achieve exactly 3.5Mhz bus (although I haven't tried this - my debug design falls over at around 1Mhz). For the ATMEGA based boards you'd need a different crystal to achieve exactly 3.5Mhz. 2Mhz or 4Mhz are the closest options.
+
 Primary Functions
 =================
 Send / Receive IP packets to/from any IP address using both native IPv4 and application compatability modes (port 0xBEE) as provided by the Wifi XBEE device.
@@ -82,7 +94,7 @@ Registering For Callbacks
 Assuming you want to receive data from the Xbee, you will want to register for one or more of four possible callback functions. If you don't register one or more of these callbacks then any inbound data associated with them is silently discarded.
 
 IP Data Reception
------------------
+=================
 
 To register a function to receive inbound IP data register a function of the following prototype:
 
@@ -112,7 +124,7 @@ If it's necessary to reconstruct the entire packet, you must buffer it up and tr
 Note that the checksum error will be only set to true on the final packet (final = true) because we don't know until that point. If the source / destination port is 0xBEE then this would indicate a packet received by the Xbee application compatability mode, which exclusively uses this port.
 
 Modem Status Reception
-----------------------
+======================
 To register for modem status updates, register a function of the following prototype:
 
         void my_modem_status_function(uint8_t status);
@@ -137,7 +149,7 @@ The status value received can be compared against one of the following defined v
         XBEE_MODEM_STATUS_FAILED_TO_JOIN        0x8E
 
 Remote Data Sample callback
----------------------------
+===========================
 The remote sample callback is used to receive remote IO data samples from a remote Xbee. Should such a sample arrive, it will be dispatched using this callback.
 
 To register for sample callback, register a function of the following prototype:
@@ -198,7 +210,9 @@ You will find a list of these optional defines commented out at the top of the .
 
 Limitations
 ===========
-This library is not currently supported for the Arduino Due. It was written for Arduino Uno / Mega and similar devices based on the ATMEGA chipset, not the ARM chipset used by the DUE. The SPI implementation on the Due is different and this library will not compile for Due. I have a Due on order and i'll see if I can incorporate Due support in the upcoming weeks.
+Support for the Arduino DUE is now provided. It is experimental at this time. 
+
+Adding other devices to the SPI bus at the same time as the XbeeWifi, using this library should be supported - but is not tested.
 
 I have outstanding questions on whether it is possible for a packet to be dispatched (Xbee -> Arduino) on the SPI bus during the transmission of a packet (Arduino -> Xbee). It appears that this does not occur. I have not found an instance of the ATTN line being asserted, or the reception of a 0x7E (start byte) from the Xbee during transmission of a packet. A good test for this is sending a transmission from the xbee to it's own IP. This behaves mostly as expected- although there appears to be an Xbee bug on receipt - the received packet comes back over SPI but the IP address is all zeros and the data is corrupt. I will send an email to Digi about this minor problem, as well as questions over the details of the SPI bus implementation.
 

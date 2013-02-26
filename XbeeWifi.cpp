@@ -5,7 +5,7 @@
  *
  * Author		Chris Bearman
  *
- * Version		1.0
+ * Version		2.0
  *
  * License		This software is released under the terms of the Mozilla Public License (MPL) version 2.0
  * 			Full details of licensing terms can be found in the "LICENSE" file, distributed with this code
@@ -23,27 +23,12 @@
 
 // Debug functions
 #ifdef XBEE_ENABLE_DEBUG
-
 // Debug is enabled, XBEE_DEBUG is a simple macro that just inserts the code within it's parameter
 #define XBEE_DEBUG(x) (x)
-
-// Logic to allow us to do inline embedding of PROGMEM strings, for convenience and ease of use
-class __FlashStringHelper;
-#define F(str) reinterpret_cast<__FlashStringHelper *>(PSTR(str))
-
-#else
-
+#else 
 // Debug is not enabled, the XBEE_DEBUG becomes a NOP macro that essentially discards it's parameter
 #define XBEE_DEBUG(x)
 #endif
-
-// For consistent use - definition of SPCR settings for SPI bus
-#define XBEE_SPCR (1 << SPE) | (1 << MSTR) | (1 << SPR0)
-// Other possible options here...
-// For faster SPI bus (usually works)
-//#define XBEE_SPCR (1 << SPE) | (1 << MSTR)
-// For slower SPI bus (good for scope debugging)
-//#define XBEE_SPCR (1 << SPE) | (1 << MSTR) | (1 << SPR0) | (1 << SPR1)
 
 // The following codes are returned by the rx_frame method, and used internally within this module
 #define RX_SUCCESS 0
@@ -68,22 +53,20 @@ XbeeWifi::XbeeWifi() :
 #endif
 	next_atid(0),
 	callback_depth(0),
+#ifdef ARCH_ATMEGA
 	spcr_copy(SPCR),
+	spsr_copy(SPSR),
+#endif
 	spiRunning(false),
 	spiLocked(false)
 {
-}
-
-// Block until current SPI operation completes
-void XbeeWifi::waitSPI()
-{
-	while(!(SPSR & (1<<SPIF))) { };
 }
 
 // Write a buffer of given length to SPI
 // Writing multiple bytes from a single function is optimal from a SPI bus usage perspective
 void XbeeWifi::write(const uint8_t *data, int len)
 {
+	uint8_t rxbyte;
 	XBEE_DEBUG(Serial.print(F("Write")));
 	XBEE_DEBUG(Serial.println(len, DEC));
 
@@ -94,12 +77,7 @@ void XbeeWifi::write(const uint8_t *data, int len)
 #endif
 		XBEE_DEBUG(Serial.print(F("OUT 0x")));
 		XBEE_DEBUG(Serial.println(data[i], HEX));
-		SPDR = data[i];
-		waitSPI();
-#ifdef XBEE_ENABLE_DEBUG
-		if (SPDR == 0x7E) Serial.println("!*!Start packet during write");
-#endif
-
+		rxbyte = rxtx(data[i]);
 	}
 }
 
@@ -109,8 +87,12 @@ void XbeeWifi::spiStart()
 	if (spiRunning) return;
 	spiRunning = true;
 	XBEE_DEBUG(Serial.println("SPI Start"));
+#ifdef ARCH_ATMEGA
 	spcr_copy = SPCR;
+	spsr_copy = SPSR;
 	SPCR = XBEE_SPCR;
+	SPSR = XBEE_SPSR;
+#endif
 	digitalWrite(pin_cs, LOW);
 }
 
@@ -121,18 +103,34 @@ void XbeeWifi::spiEnd()
 	spiRunning = false;
 	XBEE_DEBUG(Serial.println("SPI End"));
 	digitalWrite(pin_cs, HIGH);
+#ifdef ARCH_ATMEGA
 	SPCR = spcr_copy;
+	SPSR = spsr_copy;
+#endif
 }
 
+uint8_t XbeeWifi::rxtx(uint8_t data)
+{
+	uint8_t rx;
+#ifdef ARCH_ATMEGA
+	SPDR = data;
+	while(!(SPSR & (1<<SPIF))) { };
+	rx = SPDR;
+#endif
+#ifdef ARCH_SAM
+	SPI_INTERFACE->SPI_TDR = ((uint32_t) SPI_PCS(spi_ch) | (uint32_t) data);
+	while ((SPI_INTERFACE->SPI_SR & SPI_SR_RDRF) == 0) { };
+	rx = (SPI_INTERFACE->SPI_RDR & 0xFF);
+#endif
+	return rx;
+}
 
 // Read a buffer of given length from SPI
 // Reading multiple bytes in a single function is again optimal
 uint8_t XbeeWifi::read()
 {
-	// Read data by sending 0x00
-	SPDR = 0x00;
-	waitSPI();
-	uint8_t data = SPDR;
+	// A read is accomplished by transmitting a meaningless byte
+	uint8_t data = rxtx(0x00);
 	XBEE_DEBUG(Serial.print("IN 0x"));
 	XBEE_DEBUG(Serial.println(data, HEX));
 
@@ -160,16 +158,59 @@ bool XbeeWifi::init(uint8_t cs, uint8_t atn, uint8_t reset, uint8_t dout)
 	XBEE_DEBUG(Serial.println(pin_reset, DEC));
 
 	// Set correct states for SPI lines
+#ifdef ARCH_ATMEGA
+	// Don't want to do this on the DUE
 	pinMode(MOSI, OUTPUT);
 	pinMode(MISO, INPUT);
 	pinMode(SCK, OUTPUT);
 	pinMode(SS, OUTPUT);			// SS *MUST* be OUTPUT, even if not used as the select line
+#endif
 	pinMode(pin_cs, OUTPUT);
 	digitalWrite(pin_cs, HIGH);
   
 	// Set correct state for other signal lines
 	pinMode(pin_atn, INPUT);
 	digitalWrite(pin_atn, HIGH);	// Pull-up
+
+#ifdef ARCH_SAM
+	// Set up SPI
+	PIO_Configure(
+		g_APinDescription[PIN_SPI_MOSI].pPort,
+		g_APinDescription[PIN_SPI_MOSI].ulPinType,
+		g_APinDescription[PIN_SPI_MOSI].ulPin,
+		g_APinDescription[PIN_SPI_MOSI].ulPinConfiguration);
+	PIO_Configure(
+		g_APinDescription[PIN_SPI_MISO].pPort,
+		g_APinDescription[PIN_SPI_MISO].ulPinType,
+		g_APinDescription[PIN_SPI_MISO].ulPin,
+		g_APinDescription[PIN_SPI_MISO].ulPinConfiguration);
+	PIO_Configure(
+		g_APinDescription[PIN_SPI_SCK].pPort,
+		g_APinDescription[PIN_SPI_SCK].ulPinType,
+		g_APinDescription[PIN_SPI_SCK].ulPin,
+		g_APinDescription[PIN_SPI_SCK].ulPinConfiguration);
+	SPI_Configure(SPI_INTERFACE, SPI_INTERFACE_ID, SPI_MR_MSTR | SPI_MR_PS | SPI_MR_MODFDIS);
+	SPI_Enable(SPI_INTERFACE);
+
+	// pin_cs actual is the pin that the SPI controller is using for CS, it may - or may not - be the same pin
+	// that we're actually using...
+	pin_cs_actual = (pin_cs == BOARD_SPI_SS0 || pin_cs == BOARD_SPI_SS1 || pin_cs == BOARD_SPI_SS2 || pin_cs == BOARD_SPI_SS3) ? pin_cs : SPI_CS_DEFAULT;
+
+/*
+	We are NOT associating the CS pin to the SPI controller. This seems to work okay since we handle CS manually in all cases...
+	If we were associating the actual CS pin, we'd do this...
+	uint32_t spiPin = BOARD_PIN_TO_SPI_PIN(pin_cs_actual);
+	PIO_Configure(
+		g_APinDescription[spiPin].pPort,
+		g_APinDescription[spiPin].ulPinType,
+		g_APinDescription[spiPin].ulPin,
+		g_APinDescription[spiPin].ulPinConfiguration);
+*/
+
+	// Set up SPI control register
+	// 0x02 = SPI Mode 0 (CPOL = 0, CPHA = 0)
+	SPI_ConfigureNPCS(SPI_INTERFACE, spi_ch, 0x02 | SPI_CSR_SCBR(SPI_BUS_DIVISOR) | SPI_CSR_DLYBCT(1));
+#endif
 
 	// Do we have pin assignments for RESET and DOUT?
 	if (pin_reset != 0xFF && pin_dout != 0xFF) {

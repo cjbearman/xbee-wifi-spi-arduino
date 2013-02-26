@@ -5,7 +5,7 @@
  *
  * Author		Chris Bearman
  *
- * Version		1.0
+ * Version		2.0
  *
  * License		This software is released under the terms of the Mozilla Public License (MPL) version 2.0
  * 			Full details of licensing terms can be found in the "LICENSE" file, distributed with this code
@@ -48,6 +48,15 @@
 #ifndef __XBEEWIFI_H
 #define __XBEEWIFI_H
 #include <Arduino.h>
+
+// Set up a macro depending on architecture
+#ifdef __SAM3X8E__
+#define ARCH_SAM
+#include "xbee_sam.h"
+#else
+#define ARCH_ATMEGA
+#include "xbee_atmega.h"
+#endif
 
 // The compiler is good at optimizing out unused methods, however, certain methods are implicitly used
 // to support incoming data that is of unknown type even if that data is then discarded
@@ -464,8 +473,8 @@ class XbeeWifi
 	void spiStart();
 	void spiEnd();
 
-	// Wait for SPI operation to finish
-	void waitSPI();
+	// Perform the actual TX/RX on SPI bus
+	uint8_t rxtx(uint8_t data);
 
 	// Read and dispatch an inbound IP packet
 #ifndef XBEE_OMIT_RX_DATA
@@ -492,6 +501,10 @@ class XbeeWifi
 	uint8_t pin_atn;
 	uint8_t pin_dout;
 	uint8_t pin_reset;
+#ifdef ARCH_SAM
+	uint8_t pin_cs_actual;
+	uint8_t spi_ch;
+#endif
 
 	// RX seq
 #ifndef XBEE_OMIT_RX_DATA
@@ -525,8 +538,12 @@ class XbeeWifi
 	// Track RX callback depth
 	uint8_t callback_depth;
 
+#ifdef ARCH_ATMEGA
 	// To be nice about things, we reset SPCR after using it, copy of SPCR held here
+	// Ditto SPSR - which is in fact just the SPI2X bit which is the only writable bit here
 	uint8_t spcr_copy;
+	uint8_t spsr_copy;
+#endif
 
 	// True when we have the Xbee Chip Select asserted
 	bool spiRunning;
