@@ -87,6 +87,7 @@ void XbeeWifi::spiStart()
 	if (spiRunning) return;
 	spiRunning = true;
 	XBEE_DEBUG(Serial.println("SPI Start"));
+	delay(1);
 #ifdef ARCH_ATMEGA
 	spcr_copy = SPCR;
 	spsr_copy = SPSR;
@@ -94,12 +95,18 @@ void XbeeWifi::spiStart()
 	SPSR = XBEE_SPSR;
 #endif
 	digitalWrite(pin_cs, LOW);
+#if NOP_COUNT > 0
+	for (int i = 0 ; i < NOP_COUNT; i++) __asm__("nop\n\t");
+#endif
 }
 
 // Clean up from SPI operation, de-assert chip select, unless SPI has been locked
 void XbeeWifi::spiEnd()
 {
 	if (!spiRunning || spiLocked) return;
+#if NOP_COUNT > 0
+	for (int i = 0 ; i < NOP_COUNT; i++) __asm__("nop\n\t");
+#endif
 	spiRunning = false;
 	XBEE_DEBUG(Serial.println("SPI End"));
 	digitalWrite(pin_cs, HIGH);
@@ -118,6 +125,7 @@ uint8_t XbeeWifi::rxtx(uint8_t data)
 	rx = SPDR;
 #endif
 #ifdef ARCH_SAM
+	while ((SPI_INTERFACE->SPI_SR & SPI_SR_TDRE) == 0) { };
 	SPI_INTERFACE->SPI_TDR = ((uint32_t) SPI_PCS(spi_ch) | (uint32_t) data);
 	while ((SPI_INTERFACE->SPI_SR & SPI_SR_RDRF) == 0) { };
 	rx = (SPI_INTERFACE->SPI_RDR & 0xFF);

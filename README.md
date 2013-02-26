@@ -30,9 +30,11 @@ The SPI bus speed is set by a macro definition in either:
 	xbee_atmega.h		For Uno and similar (ATMEGA chipset based) boards
 	xbee_sam.h		For Due
 
-Assuming 16Mhz (ATMEGA) / 84Mhz (SAM/Due) clock speeds, the SPI bus is set to a default of 1Mhz which seems to be stable. Technically, according to the Xbee datasheet, a speed of up to 3.5Mhz should be attainable. I tend to hit problems at around 2Mhz, but this is mostly because of inferior hardware builds.
+The default SPI bus speed I am using is 1Mhz. This is very conservative (and assumes a 16Mhz clock for ATMEGA devices, 84Mhz clock for Arduino DUE). The clock speed definition can be easily changed by altering the clock divisor setting in either of the above files. Just read the comments and change the SPI_BUS_DIVISOR macro, per the instructions.
 
-For the Arduino Due, it is possible to achieve exactly 3.5Mhz bus (although I haven't tried this - my debug design falls over at around 1Mhz). For the ATMEGA based boards you'd need a different crystal to achieve exactly 3.5Mhz. 2Mhz or 4Mhz are the closest options.
+Technicaly 3.5Mhz can be achieved, exactly, on Arduino Due - I have tested this without issue.
+
+Due to the lower primary clock speed and more limited divisor options on the ATMEGA based boards, you are probably limited to using either 2Mhz or attempting overclocking to 4Mhz (3.5 Mhz is the max speed per spec sheet).
 
 Primary Functions
 =================

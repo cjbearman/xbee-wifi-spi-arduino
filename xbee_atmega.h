@@ -30,39 +30,44 @@
 
    According to datasheet the Xbee Wifi unit supports up to 3.5Mhz SPI
    bus.
+
+   This is probably the only line you should change in this file...
 */
 #define SPI_BUS_DIVISOR 8
 
 /* And now we will implement those speeds */
-#if SPI_BUS_SPEED == 2
+#if SPI_BUS_DIVISOR == 2
 // FCPU/2 (8Mhz typical)
 #define XBEE_SPCR (1 << SPE) | (1 << MSTR)
 #define XBEE_SPSR (1 << SPI2X)
-#elif SPI_BUS_SPEED == 4
+#elif SPI_BUS_DIVISOR == 4
 // FCPU/4 (4Mhz typical)
 #define XBEE_SPCR (1 << SPE) | (1 << MSTR)
 #define XBEE_SPSR 0x00
-#elif SPI_BUS_SPEED == 16
-// FCPU/16 (1Mhz typical)
+#elif SPI_BUS_DIVISOR == 8
+// FCPU/8 (2Mhz typical)
 #define XBEE_SPCR (1 << SPE) | (1 << MSTR) | (1 << SPR0)
-#define XBEE_SPSR 0x00
-#elif SPI_BUS_SPEED == 32
+#define XBEE_SPSR (1 << SPI2X)
+#elif SPI_BUS_DIVISOR == 32
 // FCPU/32 (500Khz typical)
 #define XBEE_SPCR (1 << SPE) | (1 << MSTR) | (1 << SPR1)
 #define XBEE_SPSR (1 << SPI2X)
-#elif SPI_BUS_SPEED == 64
+#elif SPI_BUS_DIVISOR == 64
 // FCPU/64 (250Khz typical)
 #define XBEE_SPCR (1 << SPE) | (1 << MSTR) | (1 << SPR1)
 #define XBEE_SPSR 0x00
-#elif SPI_BUS_SPEED == 128
+#elif SPI_BUS_DIVISOR == 128
 // FCPU/128 (125Khz typical)
 #define XBEE_SPCR (1 << SPE) | (1 << MSTR) | (1 << SPR1) | (1 << SPR0)
 #define XBEE_SPSR 0x00
 #else 
-// FCPU/8 (1Mhz typical - the most typical setting, thus the default)
+// FCPU/16 (1Mhz typical, default)
 #define XBEE_SPCR (1 << SPE) | (1 << MSTR) | (1 << SPR0)
-#define XBEE_SPSR (1 << SPI2X)
+#define XBEE_SPSR 0x00
 #endif
+
+/* Delay for post CS assert and pre CS retract */
+#define NOP_COUNT 1
 
 /* For assistance with debugging, the F(xxx) macro assists in embedding
    strings in progmem  */

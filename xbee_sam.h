@@ -47,6 +47,10 @@
    You can change this if you wish here, although there is likely no need to do so */
 #define SPI_CS_DEFAULT BOARD_SPI_SS3
 
+/* Insert a NOP loop of this many iterations after asserting and prior to clearing CS
+   Needed for stability at higher SPI clock frequencies */
+#define NOP_COUNT 1
+
 /* For assistance with debugging, the F(xxx) macro assists in embedding
    strings in progmem.. But we don't do this on the SAM so the F(xxx) macro
    just does nothing except pass it's content straight through */
