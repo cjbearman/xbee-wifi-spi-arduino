@@ -22,10 +22,12 @@ The optional pin connections ARE optionally used to force the XBEE module into S
 
 Make sure and pay attention to the instructions on power supply design in the Xbee Wifi manual - particuarly the capacitor recommendations. When running with an Arduino based board powered at 3.3v I have encounted issues tripping BOD (brown out) resets on the microcontroller. Lowering the BOD threshold in the microcontrolelr fuses as well as providing plenty (1000uF+) of capacitance on the power feed is advisible.
 
-This library supports both Arduino Uno (and similar) boards based on ATMEGA chipset and Arduino Due based on SAM chipset.
+This library supports both Arduino Uno (and similar) boards based on ATMEGA chipset and Arduino Due based on SAM chipset. Support for Due is new and is likely less stable at this time.
 
 SPI Bus Speed
 =============
+The Xbee Wifi chip (per spec sheet) supports a maximum SPI bus speed of 3.5Mhz.
+
 The SPI bus speed is set by a macro definition in either:
 	xbee_atmega.h		For Uno and similar (ATMEGA chipset based) boards
 	xbee_sam.h		For Due
@@ -34,7 +36,7 @@ The default SPI bus speed I am using is 1Mhz. This is very conservative (and ass
 
 Technicaly 3.5Mhz can be achieved, exactly, on Arduino Due - I have tested this without issue.
 
-Due to the lower primary clock speed and more limited divisor options on the ATMEGA based boards, you are probably limited to using either 2Mhz or attempting overclocking to 4Mhz (3.5 Mhz is the max speed per spec sheet).
+Due to the lower primary clock speed and more limited divisor options on the ATMEGA based boards, you are probably limited to using 2Mhz as a maximum unless you're using a non-standard crystal. I have tried overclocking to 4Mhz without success.
 
 Primary Functions
 =================
