@@ -460,6 +460,7 @@ int XbeeWifi::rx_frame(uint8_t *frame_type, unsigned int *len, uint8_t *data, in
 				break;
 		
 		}
+		spiEnd();
 	} while(true);	// Break out via return statement
 }
 
