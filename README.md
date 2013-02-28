@@ -233,7 +233,7 @@ Note that you do not have to call "process" when using this object. The calls to
 
 You should always read all data on every application loop to avoid potential data loss! I.E. keep read()ing until available() returns false.
 
-All other functions are unmodified (i.e. use callbacks for scanning, modem status etc..).
+All other functions are unmodified (i.e. use callbacks for scanning, modem status etc..). It is recommended to empty the buffer PRIOR to using any other command (such as issuing an AT command operation). Reason here is that using one of these other commands may require the buffer on the Xbee to be flushed out to get to the new command response, possibly overwhelming the receive buffer if data is still pending.
 
 Optimizations
 =============
