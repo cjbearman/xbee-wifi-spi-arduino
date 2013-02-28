@@ -47,6 +47,12 @@
    You can change this if you wish here, although there is likely no need to do so */
 #define SPI_CS_DEFAULT BOARD_SPI_SS3
 
+/* Define the maximum size of our working buffers
+   The maximum size of a UDP data portion on a 1500 byte MTU (ethernet)
+   network seems like it's a reasonable choice given we have enough
+   memory on this platform */
+#define XBEE_BUFSIZE 1472
+
 /* Insert a NOP loop of this many iterations after asserting and prior to clearing CS
    Needed for stability at higher SPI clock frequencies */
 #define NOP_COUNT 1

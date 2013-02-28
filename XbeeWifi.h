@@ -5,7 +5,7 @@
  *
  * Author		Chris Bearman
  *
- * Version		2.0
+ * Version		2.1
  *
  * License		This software is released under the terms of the Mozilla Public License (MPL) version 2.0
  * 			Full details of licensing terms can be found in the "LICENSE" file, distributed with this code
@@ -25,7 +25,7 @@
  *			Take care to operate the XBee correctly at 3.3v. If using a 5v Arduino, ensure necessary
  *			hardware is included to provide 5v <-> 3.3v logic level conversion for all connections
  *
- * Instructions		Create a new instance of this class
+ * Instructions		Create a new instance of this class (XbeeWifi)
  *			Call init method. Must include digital pin numbers for CS (chip select) and ATTN (attention)
  *			lines. Ideally also provide digital pin numbers for DOUT and RESET lines.
  *			Inclusion of DOUT and RESET lines will cause the XBee to automatically reset into SPI mode
@@ -44,6 +44,9 @@
  *
  *			Callback functions should *NEVER* call any method on this object since this can cause
  *			recursive behaviors and stack overflow (crash).
+ * 
+ *                      If you've got lots of memory and want a buffered data feed, check out the XbeeWifiBuffered
+ *                      class instead. 
  */
 #ifndef __XBEEWIFI_H
 #define __XBEEWIFI_H
@@ -74,12 +77,6 @@
 
 // If you want to omit support for Xbee compatability mode, uncomment XBEE_OMIT_COMPAT_MODE
 // #define XBEE_OMIT_COMPAT_MODE
-
-// The default size for TX / RX buffers used by XbeeWifi
-// If you are short on DRAM, you can reduce this down to maybe 48 bytes
-// but realize that incoming data will be dispatched back to you in smaller chunks
-// Don't make it much smaller than 48 bytes or some functions may start to fail
-#define XBEE_BUFSIZE 128
 
 // Definitions of the various API frame types
 #define XBEE_API_FRAME_TX64			0x00
@@ -431,7 +428,7 @@ class XbeeWifi
 
 	// Call as often as possible to check for inbound data
 	// Will trigger register_ip_data_callback to receive and process any inbound data
-	void process();
+	void process(bool rx_one_packet_only = false);
 
 	// Transmit data to an endpoint
 	// ip should be the binary form (uint8_t[4]) IP address
@@ -448,6 +445,10 @@ class XbeeWifi
 	bool initiateScan();
 #endif
 
+	protected:
+#ifndef XBEE_OMIT_RX_data
+	virtual void dispatch(uint8_t *data, int len, s_rxinfo *info);
+#endif
 
 	private:
 	// This is the actual method that does all AT processing
@@ -464,7 +465,7 @@ class XbeeWifi
 
 	// Receive an API frame, providing type, length and data to a max of bufsize
 	// If bufsize is < len then data will be truncated
-	int rx_frame(uint8_t *frame_type, unsigned int *len, uint8_t *data, int bufsize, unsigned long atn_wait_ms = 5000L, bool return_status = false);
+	int rx_frame(uint8_t *frame_type, unsigned int *len, uint8_t *data, int bufsize, unsigned long atn_wait_ms = 5000L, bool return_status = false, bool single_ip_rx_only = false);
 
 	// Transmit an API frame of specified type, length and data
 	void tx_frame(uint8_t type, unsigned int len, uint8_t *data);
@@ -532,8 +533,10 @@ class XbeeWifi
 	// The next ATID to use for sequencing AT comamnd responses
 	uint8_t next_atid;
 
+#ifndef XBEE_OMIT_SCAN
 	// Handles incoming active scan data (AT responses to AS command)
 	void handleActiveScan(uint8_t *buf, int len);
+#endif
 
 	// Track RX callback depth
 	uint8_t callback_depth;
@@ -553,5 +556,76 @@ class XbeeWifi
 	bool spiLocked;
 
 };
+
+#ifndef XBEE_OMIT_RX_DATA
+// The XbeeWifiBuffered class is a derivative class that provides
+// buffered access to the incoming IP data
+// 
+// This is problematic, which is why the main XbeeWifi class does not
+// buffer data but dispatches it asynchronously via callback
+//
+// But on larger Arduinos (particuarly the Due) you could use this
+// class and assign some memory as a buffer into which incoming packets
+// are captured and then read them using the "available", "read" methods
+//
+// Strictly speaking if you want to do this you're probably better off
+// usign the UART on the Xbee to read data instead of SPI
+// Still - there might be a use case for this
+class XbeeWifiBuffered : public XbeeWifi
+{
+	public:
+	// Must provide a desired buffer size when constructing
+	// If at any time incoming data is in excess of this buffer size, you will lose data
+	// This is why you should probably be using the Xbee serial service instead of SPI
+	XbeeWifiBuffered(uint16_t bufsize);
+
+	// Destructor since we use dynamic allocation
+	~XbeeWifiBuffered();
+
+	// Returns the number of available bytes
+	bool available();
+
+	// Reads the next byte. Always returns 0 if no bytes were available
+	uint8_t read();
+
+	// Peeks the next byte. Always returns 0 if no bytes are in the buffer
+	uint8_t peek();
+
+	// Flush all items out of the buffer
+	void flush();
+
+	// Returns true if a buffer overrun has occurred (and resets the overrun
+	// state to false unless reset is marked false)
+	bool overran(bool reset = true);
+
+	protected: 
+	// We will rewrite the XbeeWifi::dispatch method to capture the incoming data
+	// into the FIFO buffer
+	virtual void dispatch(uint8_t *data, int len, s_rxinfo *info);
+
+	private:
+	// Move register_ip_data_callback to private space
+	// This is not callable from the buffered version of the class
+	void register_ip_data_callback(void (*func)(uint8_t *, int, s_rxinfo *));
+
+	// The buffer
+	uint8_t *buffer;
+
+	// Declared size of the buffer
+	uint16_t bufsize;
+
+	// Head of the buffer
+	uint16_t head;
+
+	// Tail of the buffer
+	uint16_t tail;
+
+	// The number of bytes currently in the buffer
+	uint16_t size;
+
+	// Flag when a buffer overrun has occurred here
+	bool buffer_overrun;
+};
+#endif
 
 #endif /* __XBEE_WIFI_H_ */

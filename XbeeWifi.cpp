@@ -5,7 +5,7 @@
  *
  * Author		Chris Bearman
  *
- * Version		2.0
+ * Version		2.1
  *
  * License		This software is released under the terms of the Mozilla Public License (MPL) version 2.0
  * 			Full details of licensing terms can be found in the "LICENSE" file, distributed with this code
@@ -321,7 +321,7 @@ void XbeeWifi::tx_frame(uint8_t type, unsigned int len, uint8_t *data)
 // Typically this is used to receive AT response frame
 // It will trigger the asynchronous functions responsible for receiving other frame types as needed
 // to ensure those frames get processed
-int XbeeWifi::rx_frame(uint8_t *frame_type, unsigned int *len, uint8_t *data, int bufsize, unsigned long atn_wait_ms, bool return_status)
+int XbeeWifi::rx_frame(uint8_t *frame_type, unsigned int *len, uint8_t *data, int bufsize, unsigned long atn_wait_ms, bool return_status, bool single_ip_rx_only)
 {
 	// Before we do anything else, set the received length to zero
 	// for the case where we don't sucesfully receive anything
@@ -776,7 +776,7 @@ void XbeeWifi::register_sample_callback(void (*func)(s_sample *))
 // This method should be called repeatedly by the run loop to ensure
 // that the SPI bus is serviced in an expeditious manner to prevent overruns
 // and ensure timely delivery of asynchronous callbacks
-void XbeeWifi::process()
+void XbeeWifi::process(bool rx_one_packet_only)
 {
 	int res;
 	unsigned int len;
@@ -786,7 +786,7 @@ void XbeeWifi::process()
 		// Receive frames with zero timeout
 		// Since we're not currently expecting an exlicit response to anything
 		// this simply serves to dispatch our asynchronous frames
-		res = rx_frame(&type, &len, buf, XBEE_BUFSIZE, 0);
+		res = rx_frame(&type, &len, buf, XBEE_BUFSIZE, 0, false, true);
 
 		// IP / Status / Sample packets are already handled, the only thing we need to handle here
 		// is AT response to active scan
@@ -922,12 +922,8 @@ void XbeeWifi::rx_ip(unsigned int len, uint8_t frame_type)
 				// this buffer now, even though we haven't had chance to check
 				// the checksum unless of course this was the last byte
 				// in which case we still defer
-				if (ip_data_func) {
-					callback_depth++;
-					ip_data_func(buf, bufpos, &info);
-					callback_depth--;
-					info.current_offset += bufpos;
-				}
+				dispatch(buf, bufpos, &info);
+				info.current_offset += bufpos;
 				bufpos = 0;
 			}
 			buf[bufpos++] = inbound;
@@ -947,7 +943,7 @@ void XbeeWifi::rx_ip(unsigned int len, uint8_t frame_type)
 	// if it occured
 	// Dispatch the IP data to the callback function - if defined
 	info.final = true;
-	if (bufpos > 0 && ip_data_func) ip_data_func(buf, bufpos, &info);
+	if (bufpos > 0) dispatch(buf, bufpos, &info);
 	rx_seq++;
 }
 #endif
@@ -1167,4 +1163,124 @@ void XbeeWifi::handleActiveScan(uint8_t *buf, int len)
 		XBEE_DEBUG(Serial.println(F("Invalid AS response frame")));
 	}
 }
-#endif //XBEE_OMIT_SCAN
+#endif // XBEE_OMIT_SCAN (CJB)
+
+void XbeeWifi::dispatch(uint8_t *data, int len, s_rxinfo *info)
+{
+	XBEE_DEBUG(Serial.println(F("Non buffered dispatch")));
+	if (ip_data_func) {
+		callback_depth++;
+		ip_data_func(data, len, info);
+		callback_depth--;
+	}
+}
+
+#ifndef XBEE_OMIT_RX_DATA
+// Constructor for buffered XbeeWifi object
+XbeeWifiBuffered::XbeeWifiBuffered(uint16_t bufsize) :
+	bufsize(bufsize),
+	head(0),
+	tail(0),
+	size(0),
+	buffer_overrun(false)
+{
+	// Allocate memory to the buffer
+	buffer = (uint8_t *) malloc(bufsize);
+}
+
+// Destructor. Can't really imagine where we'd be using it, but still
+// memory allocation must be respected
+XbeeWifiBuffered::~XbeeWifiBuffered()
+{
+	if (buffer) free(buffer);
+}
+
+
+// Override the virtual dispatch function from the parent object
+// and instead of dispatching data to a callback, insert it into our circular
+// buffer
+void XbeeWifiBuffered::dispatch(uint8_t *data, int len, s_rxinfo *info)
+{
+	XBEE_DEBUG(Serial.print(F("(Buffered) Dispatching ")));
+	XBEE_DEBUG(Serial.print(len, DEC));
+	XBEE_DEBUG(Serial.println(F(" bytes to FIFO queue")));
+
+	// For each incoming byte
+	for (int i = 0 ; i < len; i ++) {
+		// Make sure we have space
+		if (size == bufsize) {
+			// Oops, out of space. Remainder is dropped. Make sure overrun condition is flagged
+			XBEE_DEBUG(Serial.println(F("FIFO overrun")));
+			buffer_overrun = true;
+			break;
+		} else {
+			// Add to head of buffer
+			buffer[head++] = data[i];
+			if (head == bufsize) head = 0;
+			size++;
+		}
+	}
+}
+
+// Returns true if we have bytes available to read
+bool XbeeWifiBuffered::available()
+{
+	if (size == 0) process();
+	return (size > 0);
+}
+
+// Returns the next character but does not remove it from the buffer
+// Always returns 0 if nothing available (but of course might return 0 if 0 is in the buffer too)
+uint8_t XbeeWifiBuffered::peek()
+{
+	// If we have nothing in the buffer, it's time to process the SPI bus
+	if (size == 0) process(false);
+
+	if (size == 0) {
+		// Still nothing, return 0
+		return 0;
+	} else {
+		// Return tail of buffer
+		return buffer[tail];
+	}
+}
+
+// Returns the next character from the buffer
+// Returns 0 if nothing available (same caveat as for peek)
+uint8_t XbeeWifiBuffered::read()
+{
+	// If we have nothing in the buffer, it's time to process the SPI bus
+	if (size == 0) process(false);
+
+	if (size == 0) {
+		// Still nothing, return 0
+		return 0;
+	} else {
+		// Grab the buffer tail and advance / wrap the tail pointer
+		uint8_t data = buffer[tail++];
+		if (tail == bufsize) tail = 0;
+
+		// Decrement the size since we just removed a byte and return the byte
+		size--;
+		return data;
+	}
+}
+
+// Returns true if we overran the buffer
+// Will reset state to false on every call unless reset is specified false
+bool XbeeWifiBuffered::overran(bool reset)
+{
+	uint8_t result = buffer_overrun;
+	if (reset) buffer_overrun = false;
+	return result;
+}
+
+// Flush all content from the buffer
+// Does not flush the SPI bus though.. This is deliberate.
+void XbeeWifiBuffered::flush()
+{
+	head = tail = size = 0;
+}
+	
+
+#endif

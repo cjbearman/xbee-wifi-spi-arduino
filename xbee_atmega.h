@@ -31,11 +31,16 @@
    According to datasheet the Xbee Wifi unit supports up to 3.5Mhz SPI
    bus.
 
-   This is probably the only line you should change in this file...
 */
 #define SPI_BUS_DIVISOR 8
 
-/* And now we will implement those speeds */
+/* Buffer size - keep it small on this platform 
+   You can reduce this if you're running low on DRAM, but if that's 
+   the case you're likely already in trouble... 
+   Keep this value >=48 bytes as an absolute minimum */
+#define XBEE_BUFSIZE 128
+
+/* Implementation of various speeds, don't mess with this */
 #if SPI_BUS_DIVISOR == 2
 // FCPU/2 (8Mhz typical)
 #define XBEE_SPCR (1 << SPE) | (1 << MSTR)

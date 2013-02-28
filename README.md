@@ -110,7 +110,11 @@ Using the register_ip_data_callback method:
 
 Your function will be called when you run the process() method if there is IP data inbound. The data is provided in the data parameter, and the length of the data in the len function. The info structure contains information about the data, such as which IP:Port sent it.
 
-Since we have limited memory, the maximum amount of data you'll receive in any one call to this callback will be 128 bytes (size of XBEE_BUFSIZE defined in XbeeWifi.h). This means that if an IP packet comes in with > 128 bytes, it will be fragmented and sent to you in multiple calls. 
+The maximum amount of data received in any call is defined by XBEE_BUFSIZE macro (define in xbee_atmega.h). The default for ATMEGA based platforms is 128 bytes, meaning if more than 128 bytes come in in a single packet, it will be framented and delivered to you in multiple calls.
+
+Increase the size of this if memory allows and you are expecting larger packets. Decrease as low as 48 bytes if you're tragically short on DRAM.
+
+For Arduino Due users, this is defined in xbee_sam.h at a default of 1472 bytes which should be enough to convey most packets in a single call (based on a 1500 MTU less minimum headers).
 
 If it's necessary to reconstruct the entire packet, you must buffer it up and track the reassembly. The following elements of the info structure contain information to assist with reassembly:
 
@@ -202,6 +206,34 @@ Why? Because other data may be pending on the SPI bus that data must be serviced
 Although it is possible to transmit (without confirmation) from inside a callback, it is not advised since it would be very hard to prevent SPI buffer overruns.
 
 
+Buffered Reception
+==================
+The callback pattern described above is used because:
+a) We don't have much memory to work with
+b) We cannot predict what packets (IP data, modem status etc..) may be inbound at any point in time from the device.
+
+So unless we want to buffer up data, which we probably don't have the memory to do, we need to be flexible in when the data is delivered. Hence the callback pattern.
+
+HOWEVER... If you really REALLY dislike callbacks, and have a simple application case, an alternative implementation is also provided. The XbeeWifiBuffered class is very similar to XbeeWifi, however, when constructing the object you specify a number of bytes (say 1024) to use as a buffer. You don't register for IP data callback, instead, you use the "available" and "read" methods to read data from the buffer. 
+
+This is a more risk approach, althogh much easier to code to:
+
+Problems:
+	1. You're chewing up memory
+		.. Less of a problem on bigger boards with more DRAM such as Mega or Due.
+	2. More risk of data loss
+		.. If a packet comes in that exceeds the buffer size, some data WILL be discarded
+		.. Other cases can cause data loss if you're not servicing the object fast enough.
+
+See the "buffered" example sketch for more information on using this mode.
+
+However, consider that if you're considering this approach you might be better off using the serial (non SPI) mode of the Xbee.
+
+Note that you do not have to call "process" when using this object. The calls to available() and read() will ensure that the bus is serviced.
+
+You should always read all data on every application loop to avoid potential data loss! I.E. keep read()ing until available() returns false.
+
+All other functions are unmodified (i.e. use callbacks for scanning, modem status etc..).
 
 Optimizations
 =============
