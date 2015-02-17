@@ -7,6 +7,11 @@ This library is not for use with non-wifi (Zigbee or other) XBEE modules. It is 
 
 Note that using integrating with the Xbee Wifi using SPI is a demanding job for a small microcontroller. Simple communications problems are often better solved UART interface to the device. This library does not provide support for the much simpler requirements of integration through the UART interface - it is soley dedicated to integration using the more complex SPI interface.
 
+I am no longer actively maintaining this library. I will generally answer questions if time permits, however, please be aware you're going to be largely on your own.
+
+Feb 17 2015
+Since this library was published a couple of years ago, Digi has released a new version of the Xbee wifi. Although I believe this library will work with the new chip, there will at the very least be some unsupported functions, such as the new cloud management interactions provided by the device. If time permits in the near future, I will purchase one of the new variants and update the library to support it.
+
 Hardware Configuration
 ======================
         Arduino                                         XBEE
